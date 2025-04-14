@@ -20,14 +20,19 @@ import (
 	"anicli/platform/windows"
 )
 
-const authCodeBaseURL = "https://anilist.co/api/v2/oauth"
-const authTokenBaseURL = "https://anilist.co/api/v2/oauth/token"
-const authTokenGrantType = "authorization_code"
-const JSON = "application/json"
+const (
+	authCodeBaseURL    = "https://anilist.co/api/v2/oauth"
+	authTokenBaseURL   = "https://anilist.co/api/v2/oauth/token"
+	authTokenGrantType = "authorization_code"
+	JSON               = "application/json"
+)
 
 func openBrowser(url string) error {
-	var runCmd string
-	var runArgs []string
+	var (
+		runArgs []string
+		runCmd  string
+	)
+
 	switch runtime.GOOS {
 	case "windows":
 		runCmd, runArgs = windows.OpenCmd, append(windows.BrowserArgs, url)
@@ -161,7 +166,7 @@ func getAccessToken(m map[string]string) (string, error) {
 
 func Login() error {
 	cfg, err := config.GetUserConfig()
-	
+
 	if err != nil {
 		return nil
 	}

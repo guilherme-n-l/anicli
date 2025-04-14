@@ -7,24 +7,28 @@ import (
 	"os"
 
 	"anicli/client"
+	"anicli/opts/anime"
+	"anicli/opts/utils"
 )
 
 const versionFile = "VERSION"
 
-var version string
-
-func newBoolFlag(maximized string, minimized string, value bool, desc string) *bool {
-	newFlag := flag.Bool(maximized, value, desc)
-
-	if minimized != "" {
-		flag.BoolVar(newFlag, minimized, value, desc)
-	}
-
-	return newFlag
-}
+var (
+	fs          = flag.CommandLine
+	mainContext = utils.FlagContext{Fs: fs, Flags: map[*bool]func(){
+		utils.NewBoolFlag("help", "h", false, "Show application commands", nil):   Help,
+		utils.NewBoolFlag("version", "v", false, "Show application version", nil): version,
+		utils.NewBoolFlag("login", "l", false, "Login into AniList", nil):         login,
+	}}
+	animeContext = anime.Context
+	// mangaFs    = manga.Fs
+	// userFs     = user.Fs
+	// configFs   = config.Fs
+	appVersion string
+)
 
 func getVersion() error {
-	if version != "" {
+	if appVersion != "" {
 		return nil
 	}
 
@@ -38,7 +42,7 @@ func getVersion() error {
 
 	scanner := bufio.NewScanner(file)
 	if scanner.Scan() {
-		version = scanner.Text()
+		appVersion = scanner.Text()
 	} else {
 		return fmt.Errorf("Empty version file")
 	}
@@ -54,17 +58,16 @@ func getVersion() error {
 	return nil
 }
 
-func Version() {
+func version() {
 	if err := getVersion(); err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("AniCLI version: %s\n", version)
+	fmt.Printf("AniCLI version: %s\n", appVersion)
 }
 
-func help() {
-	Version()
-	fmt.Println("AniCLI Usage")
+func Help() {
+	fmt.Println("Usage of anicli")
 	flag.PrintDefaults()
 }
 
@@ -74,16 +77,41 @@ func login() {
 	}
 }
 
-func ParseFlags() {
-	flags := map[*bool]func(){
-		newBoolFlag("help", "h", false, "Show application commands"):   help,
-		newBoolFlag("version", "v", false, "Show application version"): Version,
-		newBoolFlag("login", "l", false, "Login into AniList"):         login,
+func getContext() utils.FlagContext {
+	if len(os.Args) < 2 {
+		return mainContext
 	}
 
-	flag.Parse()
+	switch os.Args[1] {
+	case "anime":
+		return animeContext
+		// case "manga": return mangaContext
+		// case "user": return userContext
+		// case "config": return configContext
+	default:
+		return mainContext
+	}
+}
 
-	for f, handler := range flags {
+func preventInvalidArgs(context utils.FlagContext) {
+	if context.Fs.NArg() > 0 {
+		fmt.Fprintf(os.Stderr, "Invalid arg provided not allowed: %s\n", context.Fs.Arg(0))
+		os.Exit(1)
+	}
+}
+
+func ParseArgs() {
+	context := getContext()
+
+	if context.Fs == fs {
+		flag.Parse()
+	} else {
+		context.Fs.Parse(os.Args[2:])
+	}
+
+	preventInvalidArgs(context)
+
+	for f, handler := range context.Flags {
 		if *f {
 			handler()
 		}
