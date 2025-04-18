@@ -110,11 +110,6 @@ func (ctx Context) AddBoolFlags(boolFlags []BoolFlag) {
 func (ctx Context) ParseFlags(args []string) {
 	ctx.Fs.Parse(args)
 
-	if ctx.Fs.NFlag() == 0 {
-		ctx.DefaultHandler()
-		return
-	}
-
 	ctx.preventInvalidArgs()
 
 	for f, handler := range ctx.Flags {
@@ -122,6 +117,8 @@ func (ctx Context) ParseFlags(args []string) {
 			handler()
 		}
 	}
+
+	ctx.DefaultHandler()
 }
 
 func (ctx Context) PrintSubContexts() {

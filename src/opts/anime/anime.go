@@ -8,7 +8,7 @@ import (
 var Ctx utils.Context
 
 func init() {
-	Ctx = utils.NewContext("anime", "Manage anime your list or from AniList", &[]*utils.Context{&listCtx})
+	Ctx = utils.NewContext("anime", "Manage anime in your list or from AniList", &[]*utils.Context{&listCtx})
 	Ctx.DefaultHandler = help
 	Ctx.AddBoolFlags([]utils.BoolFlag{
 		utils.NewBoolFlag("help", "h", false, "Show anime commands", help),

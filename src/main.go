@@ -1,9 +1,8 @@
 package main
 
 import (
-	"os"
-
 	"anicli/opts"
+	"os"
 )
 
 func main() {
