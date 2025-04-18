@@ -1,15 +1,20 @@
 package anime
 
 import (
-	"flag"
-	"fmt"
-
 	"anicli/opts/utils"
+	"fmt"
 )
 
-var (
-	fs      = flag.NewFlagSet("anime", flag.ExitOnError)
-	Context = utils.FlagContext{Fs: fs, Flags: map[*bool]func(){
-		utils.NewBoolFlag("help", "h", false, "Show application commands", fs): func() {fmt.Println("Hello from anime")},
-	}}
-)
+var Ctx utils.Context
+
+func init() {
+	Ctx = utils.NewContext("anime", "Manage anime your list or from AniList", &[]*utils.Context{&listCtx})
+	Ctx.DefaultHandler = help
+	Ctx.AddBoolFlags([]utils.BoolFlag{
+		utils.NewBoolFlag("help", "h", false, "Show anime commands", help),
+	})
+}
+
+func help() {
+	fmt.Println("Help from anime")
+}
