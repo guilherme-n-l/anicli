@@ -5,12 +5,24 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
+)
+
+type slug byte
+type slugSet map[slug]bool
+
+const (
+	BoolSlug slug = iota
+	NumberSlug
+	StringSlug
 )
 
 type Context struct {
 	Name           string
 	Description    string
 	SubCtxs        []*Context
+	Slugs          slugSet
 	Fs             *flag.FlagSet
 	Flags          map[*bool]func()
 	DefaultHandler func()
@@ -26,6 +38,30 @@ type BoolFlag struct {
 	Flag
 	Value   bool
 	Handler func()
+}
+
+func NewSlugSet(slugs ...slug) *slugSet {
+	ss := slugSet{}
+
+	for _, s := range slugs {
+		ss[s] = true
+	}
+
+	return &ss
+}
+
+func parseSlug(s string) slug {
+	lower := strings.ToLower(s)
+
+	if lower == "true" || lower == "false" {
+		return BoolSlug
+	}
+
+	if _, err := strconv.Atoi(s); err == nil {
+		return NumberSlug
+	}
+
+	return StringSlug
 }
 
 func NewBoolFlag(longhand string, shorthand string, value bool, description string, handler func()) BoolFlag {
@@ -50,8 +86,16 @@ func addBoolFlag(bf *BoolFlag, fs *flag.FlagSet) *bool {
 	return newFlag
 }
 
-func NewContext(name string, description string, subCtxs *[]*Context) Context {
+func (ss slugSet) hasSlug(s slug) bool {
+	return ss[s]
+}
+
+func NewContext(name string, description string, subCtxs *[]*Context, ss *slugSet) Context {
 	var fs *flag.FlagSet
+
+	if ss == nil {
+		ss = &slugSet{}
+	}
 
 	if subCtxs == nil {
 		subCtxs = &[]*Context{}
@@ -68,10 +112,14 @@ func NewContext(name string, description string, subCtxs *[]*Context) Context {
 		Name:           name,
 		Description:    description,
 		SubCtxs:        *subCtxs,
+		Slugs:          *ss,
 		Fs:             fs,
 		Flags:          map[*bool]func(){},
-		DefaultHandler: fs.PrintDefaults,
 	}
+
+	ctx.DefaultHandler = ctx.defaultHelp
+	ctx.Fs.Usage = ctx.defaultHelp
+
 	return ctx
 }
 
@@ -85,23 +133,15 @@ func (ctx Context) invalidArgumentExit(arg string) {
 
 func (ctx Context) preventInvalidArgs() {
 	if ctx.Fs.NArg() > 0 {
-		ctx.invalidArgumentExit(ctx.Fs.Arg(0))
+		for _, i := range ctx.Fs.Args() {
+			if !ctx.Slugs.hasSlug(parseSlug(i)) {
+				ctx.invalidArgumentExit(i)
+			}
+		}
 	}
 }
 
-func isFlag(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-
-	if len(s) > 1 && s[:2] == "--" || s[:1] == "-" {
-		return true
-	}
-
-	return false
-}
-
-func (ctx Context) AddBoolFlags(boolFlags []BoolFlag) {
+func (ctx Context) AddBoolFlags(boolFlags ...BoolFlag) {
 	for _, i := range boolFlags {
 		ctx.Flags[addBoolFlag(&i, ctx.Fs)] = i.Handler
 	}
@@ -127,8 +167,15 @@ func (ctx Context) PrintSubContexts() {
 	}
 }
 
+func (ctx Context) defaultHelp() {
+	fmt.Printf("Usage of anicli %s:\n", ctx.Name)
+	ctx.Fs.PrintDefaults()
+	ctx.PrintSubContexts()
+	os.Exit(1)
+}
+
 func (ctx Context) GetContext(args []string) (*Context, []string) {
-	if len(args) == 0 || isFlag(args[0]) {
+	if len(args) == 0 {
 		return &ctx, args
 	}
 
@@ -138,7 +185,5 @@ func (ctx Context) GetContext(args []string) (*Context, []string) {
 		}
 	}
 
-	ctx.invalidArgumentExit(args[0])
-
-	return nil, nil
+	return &ctx, args
 }

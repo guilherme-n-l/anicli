@@ -1,4 +1,4 @@
-package client
+package utils
 
 import (
 	"bytes"
@@ -89,18 +89,13 @@ type mediaListResponse struct {
 type media string
 
 const (
-	anime media = "ANIME"
-	manga media = "MANGA"
+	Anime media = "ANIME"
+	Manga media = "MANGA"
 )
 
 const API_URL = "https://graphql.anilist.co"
 
 func sendGQLRequest(query string, variables map[string]any) ([]byte, error) {
-	cfg, err := config.GetUserConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	data, err := json.Marshal(gQLQuery{
 		Query:     query,
 		Variables: variables,
@@ -114,7 +109,7 @@ func sendGQLRequest(query string, variables map[string]any) ([]byte, error) {
 		return nil, err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+cfg.GetAuthToken())
+	req.Header.Set("Authorization", "Bearer "+config.GetAuthToken())
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -134,6 +129,60 @@ func sendGQLRequest(query string, variables map[string]any) ([]byte, error) {
 	}
 
 	return body, nil
+}
+
+func parseMediaLists(lists mediaListResponse) string {
+	res := ""
+
+	for _, list := range lists.Data.MediaListCollection.Lists {
+		for _, entry := range list.Entries {
+			res += fmt.Sprintf(
+				"%s%c %s\n",
+				MediaId(entry.Media.ID),
+				mediaListRune(mediaListType(list.Name)),
+				entry.Media.Title.Romaji)
+		}
+	}
+
+	return res
+}
+
+func GetFullMediaList(userId int, media media) (string, error) {
+	res, err := sendGQLRequest(
+		"query($type:MediaType!,$userId:Int!){MediaListCollection(type:$type,userId:$userId){lists{name,entries{id,media{id,title{romaji}}}}}}",
+		map[string]any{
+			"type":   media,
+			"userId": userId,
+		})
+
+	if err != nil {
+		return "", err
+	}
+
+	var lists mediaListResponse
+
+	err = json.Unmarshal(res, &lists)
+	if err != nil {
+		return "", err
+	}
+
+	return parseMediaLists(lists), nil
+}
+
+func GetMediaById(mediaId int) (string, error) {
+	res, err := sendGQLRequest(
+		"query($id:Int){Media(id:$id){id,title{romaji,english,native}}}",
+		map[string]any{
+			"id": mediaId,
+		})
+
+	if err != nil {
+		return "", err
+	}
+
+	fmt.Println(string(res))
+
+	return "", nil
 }
 
 func GetUserId() (int, error) {
@@ -158,42 +207,4 @@ func GetUserId() (int, error) {
 	}
 
 	return typedRes.Data.Viewer.ID, nil
-}
-
-func parseMediaLists(lists mediaListResponse) string {
-	res := ""
-
-	for _, list := range lists.Data.MediaListCollection.Lists {
-		for _, entry := range list.Entries {
-			res += fmt.Sprintf(
-				"%s%c %s\n",
-				MediaId(entry.ID),
-				mediaListRune(mediaListType(list.Name)),
-				entry.Media.Title.Romaji)
-		}
-	}
-
-	return res
-}
-
-func getFullMediaList(userId int, media media) (string, error) {
-	res, err := sendGQLRequest(
-		"query($type:MediaType!,$userId:Int!){MediaListCollection(type:$type,userId:$userId){lists{name,entries{id,media{id,title{romaji}}}}}}",
-		map[string]any{
-			"type":   media,
-			"userId": userId,
-		})
-
-	if err != nil {
-		return "", err
-	}
-
-	var lists mediaListResponse
-
-	err = json.Unmarshal(res, &lists)
-	if err != nil {
-		return "", err
-	}
-
-	return parseMediaLists(lists), nil
 }

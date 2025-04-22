@@ -2,32 +2,26 @@ package anime
 
 import (
 	"fmt"
-	"os"
 
 	"anicli/client"
-	"anicli/opts/utils"
+	clientUtils "anicli/client/utils"
+	optUtils "anicli/opts/utils"
 )
 
-var listCtx utils.Context
+var listCtx optUtils.Context
 
 func init() {
-	listCtx = utils.NewContext("list", "Manage anime your list", nil)
+	listCtx = optUtils.NewContext("list", "Manage anime your list", nil, nil)
 	listCtx.DefaultHandler = fullList
-	listCtx.AddBoolFlags([]utils.BoolFlag{
-		utils.NewBoolFlag("help", "h", false, "Show anime list commands", listHelp),
-		utils.NewBoolFlag("noId", "", false, "Print anime entries without id", func() { client.MediaId = client.MediaIdFuncs[0] }),
-		utils.NewBoolFlag("noStatus", "", false, "Print anime entries without status", func() {client.MediaListFormatType = client.Blank}),
-	})
-}
-
-func listHelp() {
-	fmt.Println("Usage of anicli lists")
-	listCtx.Fs.PrintDefaults()
-	os.Exit(1)
+	listCtx.AddBoolFlags(
+		optUtils.NewBoolFlag("help", "h", false, "Show anime list commands", listCtx.Fs.Usage),
+		optUtils.NewBoolFlag("noId", "", false, "Print anime entries without id", func() { clientUtils.MediaId = clientUtils.MediaIdFuncs[0] }),
+		optUtils.NewBoolFlag("noStatus", "", false, "Print anime entries without status", func() { clientUtils.MediaListFormatType = clientUtils.Blank }),
+	)
 }
 
 func fullList() {
-	id, err := client.GetUserId()
+	id, err := clientUtils.GetUserId()
 
 	if err != nil {
 		return
